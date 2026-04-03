@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>Streaming Manager - Sistema de Cuentas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 1.8em;
+            text-align: center;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+        }
+
+        .sync-status, .notify-status {
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            text-align: center;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .sync-status.synced { background: #d4edda; color: #155724; }
+        .sync-status.error { background: #f8d7da; color: #721c24; }
+        
+        .notify-status {
+            background: #fff3cd;
+            color: #856404;
+            cursor: pointer;
+        }
+        
+        .notify-status.enabled {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            min-height: 44px;
+        }
+
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-success { background: linear-gradient(135deg, #34a853, #0f9d58); color: white; }
+        .btn-warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
+        .btn-info { background: linear-gradient(135deg, #4facfe, #00f2fe); color: white; }
+        .btn:active { transform: scale(0.98); }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-card h3 { font-size: 12px; margin-bottom: 5px; opacity: 0.9; }
+        .stat-card .number { font-size: 28px; font-weight: bold; }
+
+        .form-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+        }
+
+        .form-grid { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-weight: 600; margin-bottom: 6px; color: #555; font-size: 14px; }
+        .form-group input, .form-group select { 
+            padding: 12px; 
+            border: 2px solid #ddd; 
+            border-radius: 12px; 
+            font-size: 16px; 
+            background: white;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .accounts-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .account-card {
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 16px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.3s;
+        }
+
+        .account-card.expiring-soon {
+            border-left: 4px solid #ff9800;
+            background: #fff8e1;
+        }
+
+        .account-card.expired {
+            border-left: 4px solid #f44336;
+            background: #ffebee;
+        }
+
+        .account-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .platform { font-weight: bold; font-size: 18px; color: #667eea; }
+        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .status-active { background: #d4edda; color: #155724; }
+        .status-expired { background: #f8d7da; color: #721c24; }
+        .status-warning { background: #fff3cd; color: #856404; }
+
+        .account-detail { margin-bottom: 8px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 10px; }
+        .account-detail .label { font-weight: 600; color: #666; min-width: 70px; }
+        .account-detail .value { color: #333; word-break: break-all; }
+
+        .account-actions { display: flex; gap: 8px; margin-top: 12px; }
+        .account-actions button { 
+            flex: 1; 
+            padding: 10px; 
+            border: none; 
+            border-radius: 10px; 
+            font-size: 13px; 
+            font-weight: 600; 
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .account-actions button:active { opacity: 0.7; }
+        .btn-view { background: #e3f2fd; color: #1976d2; }
+        .btn-edit { background: #fff3e0; color: #f57c00; }
+        .btn-delete { background: #ffebee; color: #d32f2f; }
+        .btn-notify { background: #e8eaf6; color: #5e35b1; }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 20px;
+            width: 85%;
+            max-width: 350px;
+            text-align: center;
+        }
+
+        .modal-content p {
+            margin: 15px 0;
+            font-size: 18px;
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 10px;
+            word-break: break-all;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #667eea;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 15px; }
+            .stat-card .number { font-size: 24px; }
+            .btn { font-size: 12px; padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Pixel Store</h1>
+        <p class="subtitle">Gestión de cuentas con alertas</p>
+
+        <div id="notifyStatus" class="notify-status" onclick="requestNotificationPermission()">
+            🔔 Activar notificaciones
+        </div>
+
+        <div id="syncStatus" class="sync-status">
+            📡 Modo Local
+        </div>
+
+        <div class="btn-group">
+            <button class="btn btn-success" onclick="setupGoogleSheets()">🔗 Google Sheets</button>
+            <button class="btn btn-info" onclick="checkExpiringNow()">🔍 Verificar vencimientos</button>
+            <button class="btn btn-warning" onclick="exportBackup()">💾 Respaldo</button>
+            <button class="btn btn-primary" onclick="importBackup()">📂 Importar</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card"><h3>Total Cuentas</h3><div class="number" id="totalCuentas">0</div></div>
+            <div class="stat-card"><h3>Clientes</h3><div class="number" id="totalClientes">0</div></div>
+            <div class="stat-card"><h3>Activas</h3><div class="number" id="cuentasActivas">0</div></div>
+            <div class="stat-card"><h3>⚠️ Por Vencer</h3><div class="number" id="porVencer">0</div></div>
+        </div>
+
+        <div class="form-section">
+            <h3 id="formTitle" style="margin-bottom: 15px;">➕ Nueva Cuenta</h3>
+            <form id="accountForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Plataforma Streaming</label>
+                        <select id="plataforma" required>
+                            <option value="">Seleccionar...</option>
+                            <option value="Netflix">Netflix</option>
+                            <option value="Disney+">Disney+</option>
+                            <option value="HBO Max">HBO Max</option>
+                            <option value="Amazon Prime">Amazon Prime</option>
+                            <option value="Star+">Star+</option>
+                            <option value="Paramount+">Paramount+</option>
+                            <option value="Apple TV+">Apple TV+</option>
+                            <option value="Crunchyroll">Crunchyroll</option>
+                            <option value="Spotify">Spotify</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Correo Electrónico</label>
+                        <input type="email" id="email" placeholder="correo@ejemplo.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Contraseña</label>
+                        <input type="password" id="password" placeholder="Contraseña" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nombre del Cliente</label>
+                        <input type="text" id="cliente" placeholder="Nombre completo" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Corte</label>
+                        <input type="date" id="fechaCorte" required>
+                    </div>
+                    <div class="form-group">
+                        <label>📅 Notificar con anticipación</label>
+                        <select id="notifyDays">
+                            <option value="1">1 día antes</option>
+                            <option value="2">2 días antes</option>
+                            <option value="3" selected>3 días antes</option>
+                            <option value="5">5 días antes</option>
+                            <option value="7">7 días antes</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">💾 Guardar Cuenta</button>
+                <button type="button" id="cancelBtn" class="btn" style="width: 100%; margin-top: 10px; display: none;">❌ Cancelar Edición</button>
+            </form>
+        </div>
+
+        <input type="text" id="searchInput" class="search-box" placeholder="🔍 Buscar por plataforma, correo o cliente...">
+
+        <div id="accountsList" class="accounts-list"></div>
+    </div>
+
+    <div id="passwordModal" class="modal" onclick="closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h3>🔐 Contraseña</h3>
+            <p id="modalPassword"></p>
+            <button class="btn btn-primary" onclick="closeModal()">Cerrar</button>
+        </div>
+    </div>
+
+    <script>
+        // ==================== VARIABLES GLOBALES ====================
+        let accounts = [];
+        let editIndex = -1;
+        let sheetDBApiUrl = localStorage.getItem('sheetdb_url') || '';
+        let notificationPermission = false;
+
+        // ==================== FUNCIONES DE FECHAS ====================
+        function getDaysRemaining(cutDate) {
+            if (!cutDate) return 0;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const cut = new Date(cutDate);
+            cut.setHours(0, 0, 0, 0);
+            const diffTime = cut - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays;
+        }
+
+        function getStatus(days) {
+            if (days < 0) return { text: '❌ Vencida', class: 'status-expired' };
+            if (days <= 7) return { text: '⚠️ Por vencer', class: 'status-warning' };
+            return { text: '✓ Activa', class: 'status-active' };
+        }
+
+        // ==================== ALMACENAMIENTO LOCAL ====================
+        function saveToLocal() {
+            localStorage.setItem('streamingAccounts', JSON.stringify(accounts));
+            renderAccounts();
+            setTimeout(() => checkAndSendNotifications(), 500);
+        }
+
+        function loadFromLocal() {
+            const saved = localStorage.getItem('streamingAccounts');
+            if (saved) {
+                try {
+                    accounts = JSON.parse(saved);
+                } catch(e) {
+                    console.error('Error al cargar datos:', e);
+                    accounts = [];
+                }
+            } else {
+                // Datos de ejemplo para demostración
+                const today = new Date();
+                const exampleDate = new Date();
+                exampleDate.setDate(today.getDate() + 3);
+                accounts = [{
+                    plataforma: 'Netflix',
+                    email: 'demo@netflix.com',
+                    password: 'demo123',
+                    cliente: 'Cliente Demo',
+                    fechaCorte: exampleDate.toISOString().split('T')[0],
+                    notifyDays: '3'
+                }];
+                saveToLocal();
+            }
+            renderAccounts();
+        }
+
+        // ==================== NOTIFICACIONES ====================
+        async function requestNotificationPermission() {
+            if (!('Notification' in window)) {
+                alert('Tu navegador no soporta notificaciones');
+                return;
+            }
+            
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                notificationPermission = true;
+                const statusDiv = document.getElementById('notifyStatus');
+                statusDiv.innerHTML = '🔔 Notificaciones activadas ✓';
+                statusDiv.className = 'notify-status enabled';
+                localStorage.setItem('notifications_enabled', 'true');
+                
+                showNotification('✅ Streaming Manager', 'Las notificaciones están activadas. Te avisaremos cuando una cuenta esté por vencer.');
+                checkAndSendNotifications();
+            } else {
+                document.getElementById('notifyStatus').innerHTML = '🔕 Notificaciones bloqueadas - Toca para activar';
+                document.getElementById('notifyStatus').className = 'notify-status';
+            }
+        }
+
+        function showNotification(title, body) {
+            if (!notificationPermission) return;
+            
+            if (Notification.permission === 'granted') {
+                const options = {
+                    body: body,
+                    icon: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23667eea"%3E%3Cpath d="M4 6h16v12H4z"/%3E%3C/svg%3E',
+                    vibrate: [200, 100, 200],
+                    silent: false,
+                    requireInteraction: true
+                };
+                new Notification(title, options);
+            }
+        }
+
+        function checkAndSendNotifications() {
+            if (!notificationPermission && Notification.permission === 'granted') {
+                notificationPermission = true;
+            }
+            if (!notificationPermission) return;
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const sentKeys = JSON.parse(localStorage.getItem('sent_notifications') || '{}');
+            const todayKey = new Date().toISOString().split('T')[0];
+            
+            accounts.forEach((account) => {
+                if (!account.fechaCorte) return;
+                
+                const cutDate = new Date(account.fechaCorte);
+                cutDate.setHours(0, 0, 0, 0);
+                const daysRemaining = Math.ceil((cutDate - today) / (1000 * 60 * 60 * 24));
+                const notifyDays = parseInt(account.notifyDays) || 3;
+                
+                const shouldNotify = daysRemaining === notifyDays || daysRemaining === 1 || daysRemaining === 0;
+                const notificationKey = `${account.email}_${account.fechaCorte}_${todayKey}`;
+                
+                if (shouldNotify && !sentKeys[notificationKey]) {
+                    let title = '🎬 Recordatorio Streaming';
+                    let body = '';
+                    
+                    if (daysRemaining === 0) {
+                        title = '⚠️ ¡VENCE HOY!';
+                        body = `${account.cliente} - ${account.plataforma}\nCorreo: ${account.email}`;
+                    } else if (daysRemaining === 1) {
+                        title = '❗ Vence MAÑANA';
+                        body = `${account.cliente} - ${account.plataforma}\nCorreo: ${account.email}`;
+                    } else {
+                        body = `${account.cliente} - ${account.plataforma}\nVence en ${daysRemaining} días (${new Date(account.fechaCorte).toLocaleDateString()})`;
+                    }
+                    
+                    showNotification(title, body);
+                    sentKeys[notificationKey] = true;
+                }
+            });
+            
+            localStorage.setItem('sent_notifications', JSON.stringify(sentKeys));
+        }
+
+        function checkExpiringNow() {
+            const expiring = accounts.filter(acc => {
+                if (!acc.fechaCorte) return false;
+                const days = getDaysRemaining(acc.fechaCorte);
+                const notifyDays = parseInt(acc.notifyDays) || 3;
+                return days >= 0 && days <= notifyDays;
+            });
+            
+            if (expiring.length === 0) {
+                alert('✅ No hay cuentas por vencer en los próximos días');
+                showNotification('✅ Todo en orden', 'No hay cuentas por vencer');
+            } else {
+                let message = `📋 Cuentas por vencer (${expiring.length}):\n\n`;
+                expiring.forEach(acc => {
+                    const days = getDaysRemaining(acc.fechaCorte);
+                    message += `• ${acc.cliente} - ${acc.plataforma}: ${days} días\n`;
+                });
+                alert(message);
+            }
+        }
+
+        // ==================== GOOGLE SHEETS SYNC ====================
+        async function syncToSheetDB() {
+            if (!sheetDBApiUrl) return false;
+            
+            const statusDiv = document.getElementById('syncStatus');
+            statusDiv.innerHTML = '<span class="spinner"></span> Sincronizando...';
+            statusDiv.className = 'sync-status';
+            
+            try {
+                const response = await fetch(sheetDBApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(accounts)
+                });
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = '✅ Sincronizado con Google Sheets';
+                    statusDiv.className = 'sync-status synced';
+                    return true;
+                }
+            } catch (error) {
+                console.error('Error al sincronizar:', error);
+                statusDiv.innerHTML = '⚠️ Error de sincronización';
+                statusDiv.className = 'sync-status error';
+                return false;
+            }
+            return false;
+        }
+
+        async function loadFromSheetDB() {
+            if (!sheetDBApiUrl) return false;
+            
+            try {
+                const response = await fetch(sheetDBApiUrl);
+                const data = await response.json();
+                if (data && Array.isArray(data) && data.length > 0) {
+                    accounts = data;
+                    saveToLocal();
+                    return true;
+                }
+            } catch (error) {
+                console.error('Error al cargar:', error);
+            }
+            return false;
+        }
+
+        function setupGoogleSheets() {
+            const url = prompt('📱 Configurar sincronización con Google Sheets\n\nPASOS:\n1. Ve a https://sheetdb.io/\n2. Conecta tu Google Sheet\n3. Copia la URL de la API\n\nPega aquí la URL:', sheetDBApiUrl);
+            
+            if (url && url.includes('http')) {
+                sheetDBApiUrl = url;
+                localStorage.setItem('sheetdb_url', url);
+                syncToSheetDB();
+                alert('✅ Conexión configurada correctamente');
+                
+                // Configurar sincronización automática cada 30 segundos
+                if (window.autoSyncInterval) clearInterval(window.autoSyncInterval);
+                window.autoSyncInterval = setInterval(() => {
+                    if (sheetDBApiUrl) loadFromSheetDB();
+                }, 30000);
+            } else if (url) {
+                alert('URL no válida. Asegúrate de usar una URL de SheetDB API');
+            }
+        }
+
+        // ==================== RESPALDOS ====================
+        function exportBackup() {
+            if (accounts.length === 0) {
+                alert('No hay datos para exportar');
+                return;
+            }
+            
+            const dataStr = JSON.stringify(accounts, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `streaming_backup_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            showNotification('✅ Respaldo creado', `Se exportaron ${accounts.length} cuentas`);
+        }
+
+        function importBackup() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'application/json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const importedData = JSON.parse(event.target.result);
+                        if (confirm(`¿Importar ${importedData.length} cuentas? Esto reemplazará los datos actuales.`)) {
+                            accounts = importedData;
+                            saveToLocal();
+                            alert('✅ Datos importados correctamente');
+                            if (sheetDBApiUrl) syncToSheetDB();
+                        }
+                    } catch (error) {
+                        alert('❌ Error al importar el archivo. Asegúrate de que sea un archivo JSON válido.');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // ==================== RENDERIZADO ====================
+        function renderAccounts() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = accounts.filter(account => 
+                (account.plataforma && account.plataforma.toLowerCase().includes(searchTerm)) ||
+                (account.email && account.email.toLowerCase().includes(searchTerm)) ||
+                (account.cliente && account.cliente.toLowerCase().includes(searchTerm))
+            );
+
+            const container = document.getElementById('accountsList');
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state">📭 No hay cuentas registradas</div>';
+                updateStats();
+                return;
+            }
+
+            container.innerHTML = filtered.map((account, idx) => {
+                const days = getDaysRemaining(account.fechaCorte);
+                const status = getStatus(days);
+                const originalIdx = accounts.findIndex(a => a.email === account.email && a.cliente === account.cliente);
+                const isExpiring = days >= 0 && days <= (parseInt(account.notifyDays) || 3);
+                const isExpired = days < 0;
+                
+                let cardClass = '';
+                if (isExpiring && !isExpired) cardClass = 'expiring-soon';
+                if (isExpired) cardClass = 'expired';
+                
+                return `
+                    <div class="account-card ${cardClass}">
+                        <div class="account-header">
+                            <span class="platform">🎬 ${escapeHtml(account.plataforma)}</span>
+                            <span class="status-badge ${status.class}">${status.text}</span>
+                        </div>
+                        <div class="account-detail">
+                            <span class="label">📧 Correo:</span>
+                            <span class="value">${escapeHtml(account.email)}</span>
+                        </div>
+                        <div class="account-detail">
+                            <span class="label">🔒 Clave:</span>
+                            <span class="value">••••••••</span>
+                        </div>
+                        <div class="account-detail">
+                            <span class="label">👤 Cliente:</span>
+                            <span class="value">${escapeHtml(account.cliente)}</span>
+                        </div>
+                        <div class="account-detail">
+                            <span class="label">📅 Corte:</span>
+                            <span class="value">${formatDate(account.fechaCorte)} ${days >= 0 ? `(${days} días)` : '(Vencido)'}</span>
+                        </div>
+                        <div class="account-detail">
+                            <span class="label">🔔 Alerta:</span>
+                            <span class="value">${account.notifyDays || 3} días antes</span>
+                        </div>
+                        <div class="account-actions">
+                            <button class="btn-view" onclick="showPassword(${originalIdx})">👁️ Ver</button>
+                            <button class="btn-edit" onclick="editAccount(${originalIdx})">✏️ Editar</button>
+                            <button class="btn-delete" onclick="deleteAccount(${originalIdx})">🗑️ Eliminar</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            updateStats();
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'No definida';
+            try {
+                return new Date(dateString).toLocaleDateString();
+            } catch(e) {
+                return dateString;
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('totalCuentas').textContent = accounts.length;
+            const uniqueClients = new Set(accounts.map(a => a.cliente)).size;
+            document.getElementById('totalClientes').textContent = uniqueClients;
+            const activeCount = accounts.filter(a => getDaysRemaining(a.fechaCorte) >= 0).length;
+            document.getElementById('cuentasActivas').textContent = activeCount;
+            const expiringCount = accounts.filter(a => {
+                const days = getDaysRemaining(a.fechaCorte);
+                return days >= 0 && days <= 7;
+            }).length;
+            document.getElementById('porVencer').textContent = expiringCount;
+        }
+
+        // ==================== ACCIONES DE CUENTAS ====================
+        window.showPassword = function(index) {
+            if (index >= 0 && index < accounts.length) {
+                document.getElementById('modalPassword').textContent = accounts[index].password;
+                document.getElementById('passwordModal').style.display = 'flex';
+                setTimeout(() => closeModal(), 5000);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('passwordModal').style.display = 'none';
+        }
+
+        window.editAccount = function(index) {
+            if (index < 0 || index >= accounts.length) return;
+            
+            const account = accounts[index];
+            document.getElementById('plataforma').value = account.plataforma || '';
+            document.getElementById('email').value = account.email || '';
+            document.getElementById('password').value = account.password || '';
+            document.getElementById('cliente').value = account.cliente || '';
+            document.getElementById('fechaCorte').value = account.fechaCorte || '';
+            document.getElementById('notifyDays').value = account.notifyDays || '3';
+            
+            editIndex = index;
+            document.getElementById('formTitle').innerHTML = '✏️ Editando Cuenta';
+            document.getElementById('cancelBtn').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        window.deleteAccount = async function(index) {
+            if (index < 0 || index >= accounts.length) return;
+            
+            if (confirm(`¿Eliminar la cuenta de ${accounts[index].cliente} - ${accounts[index].plataforma}?`)) {
+                accounts.splice(index, 1);
+                saveToLocal();
+                if (sheetDBApiUrl) await syncToSheetDB();
+                showNotification('🗑️ Cuenta eliminada', 'La cuenta ha sido eliminada');
+                
+                if (editIndex === index) {
+                    editIndex = -1;
+                    document.getElementById('formTitle').innerHTML = '➕ Nueva Cuenta';
+                    document.getElementById('cancelBtn').style.display = 'none';
+                    document.getElementById('accountForm').reset();
+                }
+            }
+        };
+
+        // ==================== FORMULARIO ====================
+        document.getElementById('accountForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const plataforma = document.getElementById('plataforma').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const cliente = document.getElementById('cliente').value;
+            const fechaCorte = document.getElementById('fechaCorte').value;
+            const notifyDays = document.getElementById('notifyDays').value;
+            
+            if (!plataforma || !email || !password || !cliente || !fechaCorte) {
+                alert('⚠️ Por favor complete todos los campos');
+                return;
+            }
+            
+            const account = { plataforma, email, password, cliente, fechaCorte, notifyDays };
+            
+            if (editIndex === -1) {
+                accounts.push(account);
+                showNotification('➕ Cuenta agregada', `${cliente} - ${plataforma}`);
+            } else {
+                accounts[editIndex] = account;
+                editIndex = -1;
+                document.getElementById('formTitle').innerHTML = '➕ Nueva Cuenta';
+                document.getElementById('cancelBtn').style.display = 'none';
+                showNotification('✏️ Cuenta actualizada', `${cliente} - ${plataforma}`);
+            }
+            
+            saveToLocal();
+            if (sheetDBApiUrl) await syncToSheetDB();
+            document.getElementById('accountForm').reset();
+        });
+
+        document.getElementById('cancelBtn').addEventListener('click', () => {
+            document.getElementById('accountForm').reset();
+            editIndex = -1;
+            document.getElementById('formTitle').innerHTML = '➕ Nueva Cuenta';
+            document.getElementById('cancelBtn').style.display = 'none';
+        });
+
+        document.getElementById('searchInput').addEventListener('input', () => renderAccounts());
+
+        // ==================== INICIALIZACIÓN ====================
+        function init() {
+            loadFromLocal();
+            
+            // Verificar permisos de notificaciones guardados
+            if (localStorage.getItem('notifications_enabled') === 'true') {
+                requestNotificationPermission();
+            }
+            
+            // Cargar datos de Google Sheets si está configurado
+            if (sheetDBApiUrl) {
+                loadFromSheetDB();
+                window.autoSyncInterval = setInterval(() => {
+                    if (sheetDBApiUrl) loadFromSheetDB();
+                }, 30000);
+            }
+            
+            // Verificar notificaciones cada hora
+            setInterval(() => {
+                checkAndSendNotifications();
+                renderAccounts();
+            }, 3600000);
+            
+            // Verificar al cargar
+            setTimeout(() => checkAndSendNotifications(), 2000);
+        }
+        
+        init();
+        
+        // Cerrar modal al hacer click fuera
+        window.onclick = function(event) {
+            if (event.target === document.getElementById('passwordModal')) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
